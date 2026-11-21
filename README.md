@@ -73,7 +73,7 @@ Vercel can host the website and admin, but it cannot run the video worker (no Py
 1. Push this folder to a GitHub repository.
 2. In Render, choose **New → Blueprint Instance**, connect the repository and select `render.yaml`.
 3. Everything is preconfigured: two free web services, one free Postgres database and `STORAGE_DRIVER=database`, which stores uploads/renders as bytes in Postgres. No S3 account or card is needed.
-4. Open the web service URL (`https://clipforge-ai.onrender.com` by default). If your service name differs, update `NEXT_PUBLIC_APP_URL` and `WORKER_URL` in the shared environment group.
+4. Open the web service URL (`https://clipforge-ai-3wsy.onrender.com` for this deployment). If your service name differs, update `NEXT_PUBLIC_APP_URL` and `WORKER_URL` in the shared environment group.
 
 The web service runs `prisma db push` on start, so the database schema is created automatically. Anyone can sign up; free accounts get 2 projects and 3 clips per video. Rendering runs in the worker, so closing the browser does not stop a job.
 

@@ -12,11 +12,11 @@ envVarGroups:
       - key: CLOUD_WORKER
         value: "true"
       - key: NEXT_PUBLIC_APP_URL
-        value: https://clipforge-ai.onrender.com
+        value: https://clipforge-ai-3wsy.onrender.com
       - key: NEXT_PUBLIC_CLOUD_APP_URL
-        value: https://clipforge-ai.onrender.com
+        value: https://clipforge-ai-3wsy.onrender.com
       - key: WORKER_URL
-        value: https://clipforge-ai-worker.onrender.com
+        value: https://clipforge-ai-worker-b28h.onrender.com
       - key: STORAGE_DRIVER
         value: database
       - key: ADMIN_EMAILS

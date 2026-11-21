@@ -3,6 +3,6 @@
   "buildCommand": "prisma generate --schema prisma/vercel/schema.prisma && next build",
   "env": {
     "NEXT_PUBLIC_HOSTED_MODE": "true",
-    "NEXT_PUBLIC_CLOUD_APP_URL": "https://clipforge-ai.onrender.com"
+    "NEXT_PUBLIC_CLOUD_APP_URL": "https://clipforge-ai-3wsy.onrender.com"
   }
 }

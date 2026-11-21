@@ -4,7 +4,8 @@ import path from "node:path";
 import os from "node:os";
 import { prisma } from "@/lib/db";
 
-const driver = process.env.STORAGE_DRIVER || "local";
+const configuredDriver = process.env.STORAGE_DRIVER || "local";
+const driver = process.env.RENDER === "true" && configuredDriver !== "local" ? "database" : configuredDriver;
 const root = path.resolve(process.cwd(), process.env.STORAGE_ROOT || "./storage");
 
 function keyFor(rel: string) {

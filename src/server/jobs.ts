@@ -258,7 +258,7 @@ async function handleEvent(projectId: string, event: Record<string, unknown>) {
 
 async function fail(projectId: string, message: string) {
   if (/sign in to confirm|not a bot|please sign in/i.test(message)) {
-    message = "YouTube blocked this cloud IP. Paste a YouTube Cookie header in Admin → YouTube cookies and retry.";
+    message = "YouTube is blocking this cloud IP. Trying a public mirror; if this keeps happening, retry later or use a different public link.";
   }
   await prisma.project.update({
     where: { id: projectId },

@@ -16,6 +16,56 @@ function ytDlp() {
   return fs.existsSync(local) ? local : "yt-dlp";
 }
 
+const MIRRORS = ["yt.chocolatemoo53.com", "inv.nadeko.net", "invidious.nerdvpn.de"];
+
+type MirrorData = {
+  title?: string;
+  author?: string;
+  lengthSeconds?: number;
+  liveNow?: boolean;
+  videoThumbnails?: { url?: string }[];
+  adaptiveFormats?: { url?: string }[];
+  formatStreams?: { url?: string }[];
+};
+
+function youtubeId(raw: string): string | null {
+  try {
+    const parsed = new URL(raw);
+    const host = parsed.hostname.toLowerCase();
+    if (host.includes("youtu.be")) {
+      return parsed.pathname.split("/").filter(Boolean)[0]?.slice(0, 11) || null;
+    }
+    if (host.includes("youtube.com") || host.includes("youtube-nocookie.com")) {
+      const value = parsed.searchParams.get("v");
+      if (value) return value.slice(0, 11);
+      const match = parsed.pathname.match(/^\/(?:live|embed|shorts)\/([A-Za-z0-9_-]{11})/);
+      return match?.[1] || null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function mirrorMetadata(rawUrl: string): Promise<MirrorData | null> {
+  const id = youtubeId(rawUrl);
+  if (!id) return null;
+  for (const host of MIRRORS) {
+    try {
+      const response = await fetch(`https://${host}/api/v1/videos/${id}?local=true`, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!response.ok) continue;
+      const data = (await response.json()) as MirrorData;
+      if (data.adaptiveFormats?.length || data.formatStreams?.length) return data;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 export async function GET(request: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,6 +103,18 @@ export async function GET(request: Request) {
     }
   }
   if (isYouTube) {
+    const mirror = await mirrorMetadata(url);
+    if (mirror) {
+      const thumbnail = mirror.videoThumbnails?.find((item) => item.url)?.url || null;
+      return NextResponse.json({
+        title: mirror.title || "Untitled video",
+        channel: mirror.author || "Unknown creator",
+        duration: Number(mirror.lengthSeconds) || 0,
+        thumbnail,
+        live: Boolean(mirror.liveNow),
+        platform: new URL(url).hostname.replace(/^www\./, ""),
+      });
+    }
     try {
       const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
       if (response.ok) {
@@ -71,7 +133,7 @@ export async function GET(request: Request) {
     }
   }
   const hint = isYouTube && /sign in|not a bot/i.test(lastError)
-    ? "YouTube blocked this cloud IP. Paste a YouTube Cookie header in Admin → YouTube cookies and retry. "
+    ? "YouTube is blocking this cloud IP. Try a different public link or retry later. "
     : "Could not read this video. It may be private, live, region-locked or require a login. ";
   return NextResponse.json({ error: `${hint}${lastError.slice(0, 400)}` }, { status: 422 });
 }

@@ -17,7 +17,9 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.request
 from datetime import datetime, timezone
+from urllib.parse import parse_qs, urlparse
 from pathlib import Path
 
 os.environ.setdefault("HF_HUB_VERBOSITY", "error")
@@ -33,6 +35,8 @@ CAP_SIZE = 36 if FAST else 82
 TITLE_SIZE = 24 if FAST else 54
 FPS = 24 if FAST else 30
 FAST_SOURCE_SECONDS = 300
+INVIDIOUS_HOSTS = ["yt.chocolatemoo53.com", "inv.nadeko.net", "invidious.nerdvpn.de"]
+INVIDIOUS_HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": "https://yt.chocolatemoo53.com/"}
 RATE = 16000
 STOP = set("the a an and or but if to of in on at for with is are was were be been being this that these those it its as by from we you they i he she our your their my me him her them do does did have has had not no so just about into out up down over then than there here what when where who why how all any some can will would could should now get got go going one two really very much more most".split())
 HOT = re.compile(r"\b(wow|haha|lol|lmao|insane|crazy|unreal|amazing|incredible|no way|oh my|let'?s go|clutch|gone|finally|restart|perfect|bruh|what the|holy|nuts|sick|epic|victory|won|win|lose|lost|kill|goal|ace|chrome|funny|fail|wild|omg|damn|fuck|shit|unbelievable|savage|died|dead|crash|explode|explosion|scared|danger|panic)\b", re.I)
@@ -102,6 +106,66 @@ def ytdlp_run(args, binary=None, timeout=1800, capture=True):
                     warned = True
                     log("Saved YouTube cookies were rejected; trying a public source")
     raise last
+
+
+def youtube_video_id(url):
+    try:
+        parsed = urlparse(str(url))
+    except Exception:
+        return None
+    host = (parsed.hostname or "").lower()
+    if "youtu.be" in host:
+        return parsed.path.strip("/").split("/")[0][:11] or None
+    if "youtube.com" in host or "youtube-nocookie.com" in host:
+        found = parse_qs(parsed.query).get("v", [""])[0]
+        if found:
+            return found[:11]
+        match = re.match(r"^/(?:live|embed|shorts)/([A-Za-z0-9_-]{11})", parsed.path)
+        if match:
+            return match.group(1)
+    return None
+
+
+def invidious_info(url):
+    video_id = youtube_video_id(url)
+    if not video_id:
+        return None
+    for host in INVIDIOUS_HOSTS:
+        try:
+            request = urllib.request.Request(
+                f"https://{host}/api/v1/videos/{video_id}?local=true",
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            with urllib.request.urlopen(request, timeout=20) as response:
+                data = json.load(response)
+            if isinstance(data, dict) and (data.get("adaptiveFormats") or data.get("formatStreams")):
+                return data
+        except Exception as exc:
+            log(f"Public mirror {host} unavailable: {str(exc)[:120]}")
+    return None
+
+
+def download_invidious_source(info, work, limit):
+    source_url = info.get("hlsUrl")
+    is_hls = bool(source_url)
+    if not source_url:
+        progressive = sorted(info.get("formatStreams") or [], key=lambda f: int(f.get("bitrate") or 0), reverse=True)
+        source_url = progressive[0].get("url") if progressive else None
+    if not source_url:
+        raise WorkError("The public mirror did not return a usable video stream.")
+    host = urlparse(source_url).hostname or INVIDIOUS_HOSTS[0]
+    headers = f"User-Agent: Mozilla/5.0\r\nReferer: https://{host}/\r\n"
+    output = work / "video.mp4"
+    cmd = [os.environ.get("FFMPEG", "ffmpeg"), "-y", "-v", "error", "-nostdin",
+           "-headers", headers, "-t", str(limit), "-i", source_url,
+           "-map", "0:v:0", "-map", "0:a:0?", "-c", "copy"]
+    if is_hls:
+        cmd += ["-bsf:a", "aac_adtstoasc"]
+    cmd += [str(output)]
+    run(cmd, timeout=max(900, limit * 4))
+    if not output.exists():
+        raise WorkError("The public mirror stream could not be downloaded.")
+    return output
 
 
 def ffprobe(path):
@@ -534,10 +598,28 @@ def render_clip(source, pick, work, dest, opts, words):
     return {"file": dest.name, "thumb": thumb.name if thumb else None, "look": layout}
 
 
-def fetch_url_source(url, work, yt_dlp, limit=120, live=False):
-    info = json.loads(ytdlp_run(["--no-playlist", "--no-warnings", "--socket-timeout", "15",
-                                 "--retries", "2", "-J", url], binary=yt_dlp, timeout=90))
-    live = live or bool(info.get("is_live") and not info.get("was_live"))
+def fetch_url_source(url, work, yt_dlp, limit=120, live=False, info=None):
+    if info is None:
+        try:
+            info = json.loads(ytdlp_run(["--no-playlist", "--no-warnings", "--socket-timeout", "15",
+                                         "--retries", "2", "-J", url], binary=yt_dlp, timeout=90))
+        except Exception:
+            info = invidious_info(url) or {}
+            if info:
+                log("Using a public mirror to inspect the YouTube source")
+    if FAST and youtube_video_id(url):
+        mirror = invidious_info(url)
+        if mirror:
+            info = mirror
+    live = live or bool((info.get("is_live") or info.get("liveNow")) and not info.get("was_live"))
+    mirror_usable = bool(info and (info.get("hlsUrl") or info.get("adaptiveFormats") or info.get("formatStreams")))
+    mirror_error = None
+    if FAST and mirror_usable:
+        try:
+            log("Downloading from a public mirror")
+            return download_invidious_source(info, work, limit)
+        except Exception as exc:
+            mirror_error = exc
     out = work / "video.%(ext)s"
     base = ["--no-playlist", "--no-warnings", "--socket-timeout", "15", "--retries", "2",
             "-f", "18/best[height<=720]/best"]
@@ -557,11 +639,17 @@ def fetch_url_source(url, work, yt_dlp, limit=120, live=False):
         except Exception as exc:
             last = exc
     if last is not None:
-        detail = str(last)[:400].replace("\n", " ")
-        raise WorkError(f"Could not download the stream video: {detail}. Paste a YouTube Cookie header in Admin → YouTube cookies, then retry.") from last
+        if mirror_usable and mirror_error is None:
+            try:
+                log("Downloading from a public mirror")
+                return download_invidious_source(info, work, limit)
+            except Exception as exc:
+                mirror_error = exc
+        detail = str(mirror_error or last)[:400].replace("\n", " ")
+        raise WorkError(f"Could not download the source video: {detail}. Try a different public link or retry later.") from last
     files = [p for p in work.glob("video.*") if not p.name.endswith((".part", ".ytdl"))]
     if not files:
-        raise WorkError("No video could be downloaded from that URL. Paste a YouTube Cookie header in Admin → YouTube cookies, then retry.")
+        raise WorkError("No video could be downloaded from that URL. Try a different public link or retry later.")
     return files[0]
 
 
@@ -612,14 +700,19 @@ def main():
         analysis_source = source
         source_limit = min(opts.max_source_seconds, FAST_SOURCE_SECONDS) if FAST else opts.max_source_seconds
         if is_url:
-            meta = ytdlp_run(["--no-playlist", "--no-warnings", "--socket-timeout", "15",
-                              "--retries", "2", "-J", source], binary=opts.ytdlp, timeout=90)
-            info = json.loads(meta)
-            is_live = bool(info.get("is_live") and not info.get("was_live"))
+            try:
+                meta = ytdlp_run(["--no-playlist", "--no-warnings", "--socket-timeout", "15",
+                                  "--retries", "2", "-J", source], binary=opts.ytdlp, timeout=90)
+                info = json.loads(meta)
+            except Exception:
+                info = invidious_info(source) or {}
+                if info:
+                    log("Using a public mirror to inspect the YouTube source")
+            is_live = bool((info.get("is_live") or info.get("liveNow")) and not info.get("was_live"))
             if is_live:
                 progress("downloading", 10, "Live stream detected - recording the opening segment")
             progress("downloading", 12, f"Downloading the first {source_limit // 60} minute(s) of the stream")
-            analysis_source = str(fetch_url_source(source, work, opts.ytdlp, source_limit, is_live))
+            analysis_source = str(fetch_url_source(source, work, opts.ytdlp, source_limit, is_live, info))
         else:
             if not Path(source).exists():
                 raise WorkError(f"Source file is missing: {source}")

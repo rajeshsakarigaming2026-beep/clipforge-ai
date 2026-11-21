@@ -81,7 +81,7 @@ def ytdlp_cookie_candidates():
     default_file = Path(__file__).resolve().parent.parent / "storage" / "youtube-cookies.txt"
     if cookie_file and Path(cookie_file).exists():
         candidates.append(["--cookies", cookie_file])
-    elif default_file.exists():
+    elif not FAST and default_file.exists():
         candidates.append(["--cookies", str(default_file)])
     if not FAST:
         browser = os.environ.get("YT_COOKIES_FROM_BROWSER")

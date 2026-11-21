@@ -10,6 +10,7 @@ persist it and show it in the UI.
 """
 
 import argparse
+import concurrent.futures
 import json
 import math
 import os
@@ -35,7 +36,12 @@ CAP_SIZE = 36 if FAST else 82
 TITLE_SIZE = 24 if FAST else 54
 FPS = 24 if FAST else 30
 FAST_SOURCE_SECONDS = 300
-INVIDIOUS_HOSTS = ["yt.chocolatemoo53.com", "inv.nadeko.net", "invidious.nerdvpn.de"]
+INVIDIOUS_HOSTS = [
+    "yt.chocolatemoo53.com", "invidious.f5.si", "inv.zoomerville.com",
+    "inv.nadeko.net", "invidious.nerdvpn.de", "invidious.tiekoetter.com",
+    "invidious.private.coffee", "inv.us.projectsegfau.lt", "inv.tux.pizza",
+    "invidious.jing.rocks", "invidious.drgns.space", "yewtu.be",
+]
 INVIDIOUS_HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": "https://yt.chocolatemoo53.com/"}
 RATE = 16000
 STOP = set("the a an and or but if to of in on at for with is are was were be been being this that these those it its as by from we you they i he she our your their my me him her them do does did have has had not no so just about into out up down over then than there here what when where who why how all any some can will would could should now get got go going one two really very much more most".split())
@@ -130,18 +136,32 @@ def invidious_info(url):
     video_id = youtube_video_id(url)
     if not video_id:
         return None
-    for host in INVIDIOUS_HOSTS:
-        try:
-            request = urllib.request.Request(
-                f"https://{host}/api/v1/videos/{video_id}?local=true",
-                headers={"User-Agent": "Mozilla/5.0"},
-            )
-            with urllib.request.urlopen(request, timeout=20) as response:
-                data = json.load(response)
-            if isinstance(data, dict) and (data.get("adaptiveFormats") or data.get("formatStreams")):
-                return data
-        except Exception as exc:
-            log(f"Public mirror {host} unavailable: {str(exc)[:120]}")
+
+    def fetch(host):
+        request = urllib.request.Request(
+            f"https://{host}/api/v1/videos/{video_id}?local=true",
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        with urllib.request.urlopen(request, timeout=8) as response:
+            data = json.load(response)
+        if isinstance(data, dict) and (data.get("hlsUrl") or data.get("adaptiveFormats") or data.get("formatStreams")):
+            return host, data
+        return None
+
+    failures = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(INVIDIOUS_HOSTS)) as pool:
+        futures = [pool.submit(fetch, host) for host in INVIDIOUS_HOSTS]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+                if result:
+                    host, data = result
+                    log(f"Using public mirror {host}")
+                    return data
+            except Exception as exc:
+                failures.append(str(exc)[:80])
+    if failures:
+        log(f"Public mirrors unavailable: {failures[0]}")
     return None
 
 

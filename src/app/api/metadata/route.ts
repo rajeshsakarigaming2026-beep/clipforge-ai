@@ -16,13 +16,19 @@ function ytDlp() {
   return fs.existsSync(local) ? local : "yt-dlp";
 }
 
-const MIRRORS = ["yt.chocolatemoo53.com", "inv.nadeko.net", "invidious.nerdvpn.de"];
+const MIRRORS = [
+  "yt.chocolatemoo53.com", "invidious.f5.si", "inv.zoomerville.com",
+  "inv.nadeko.net", "invidious.nerdvpn.de", "invidious.tiekoetter.com",
+  "invidious.private.coffee", "inv.us.projectsegfau.lt", "inv.tux.pizza",
+  "invidious.jing.rocks", "invidious.drgns.space", "yewtu.be",
+];
 
 type MirrorData = {
   title?: string;
   author?: string;
   lengthSeconds?: number;
   liveNow?: boolean;
+  hlsUrl?: string;
   videoThumbnails?: { url?: string }[];
   adaptiveFormats?: { url?: string }[];
   formatStreams?: { url?: string }[];
@@ -50,20 +56,20 @@ function youtubeId(raw: string): string | null {
 async function mirrorMetadata(rawUrl: string): Promise<MirrorData | null> {
   const id = youtubeId(rawUrl);
   if (!id) return null;
-  for (const host of MIRRORS) {
-    try {
+  try {
+    return await Promise.any(MIRRORS.map(async (host) => {
       const response = await fetch(`https://${host}/api/v1/videos/${id}?local=true`, {
         headers: { "User-Agent": "Mozilla/5.0" },
-        signal: AbortSignal.timeout(12000),
+        signal: AbortSignal.timeout(8000),
       });
-      if (!response.ok) continue;
+      if (!response.ok) throw new Error(`${host} ${response.status}`);
       const data = (await response.json()) as MirrorData;
-      if (data.adaptiveFormats?.length || data.formatStreams?.length) return data;
-    } catch {
-      continue;
-    }
+      if (data.hlsUrl || data.adaptiveFormats?.length || data.formatStreams?.length) return data;
+      throw new Error(`${host} empty`);
+    }));
+  } catch {
+    return null;
   }
-  return null;
 }
 
 export async function GET(request: Request) {

@@ -627,10 +627,6 @@ def fetch_url_source(url, work, yt_dlp, limit=120, live=False, info=None):
             info = invidious_info(url) or {}
             if info:
                 log("Using a public mirror to inspect the YouTube source")
-    if FAST and youtube_video_id(url):
-        mirror = invidious_info(url)
-        if mirror:
-            info = mirror
     live = live or bool((info.get("is_live") or info.get("liveNow")) and not info.get("was_live"))
     mirror_usable = bool(info and (info.get("hlsUrl") or info.get("adaptiveFormats") or info.get("formatStreams")))
     mirror_error = None

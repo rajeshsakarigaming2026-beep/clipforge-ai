@@ -81,7 +81,7 @@ export default function ProcessClient({ project }: Props) {
         </div>
       </div>
 
-      {error && <div className="mt-6 flex flex-wrap items-start gap-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200"><XCircle className="mt-0.5 h-4 w-4 shrink-0" /><span className="min-w-0 flex-1">{error}</span>{/youtube|cookie|bot|blocked/i.test(error) && <Link href="/admin#youtube-cookies" className="shrink-0 font-semibold text-red-100 underline underline-offset-2">Open cookie settings</Link>}</div>}
+      {error && <div className="mt-6 flex flex-wrap items-start gap-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200"><XCircle className="mt-0.5 h-4 w-4 shrink-0" /><span className="min-w-0 flex-1">{error}</span></div>}
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="glass rounded-2xl p-5 sm:p-7">

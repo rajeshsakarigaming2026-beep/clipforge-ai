@@ -15,6 +15,8 @@ envVarGroups:
         value: https://clipforge-ai.onrender.com
       - key: NEXT_PUBLIC_CLOUD_APP_URL
         value: https://clipforge-ai.onrender.com
+      - key: WORKER_URL
+        value: https://clipforge-ai-worker.onrender.com
       - key: STORAGE_DRIVER
         value: s3
       - key: S3_ENDPOINT
@@ -51,10 +53,11 @@ services:
       - key: CLIPFORGE_ROLE
         value: web
 
-  - type: worker
+  - type: web
     name: clipforge-ai-worker
     runtime: docker
-    plan: 0.5c-512mb
+    plan: free
+    healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
         fromDatabase:

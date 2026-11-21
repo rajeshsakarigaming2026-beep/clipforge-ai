@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isSupportedUrl } from "@/lib/utils";
-import { startJob } from "@/server/jobs";
+import { startJob, wakeWorker } from "@/server/jobs";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -25,6 +25,7 @@ export async function POST(_request: Request, { params }: Params) {
       where: { id },
       data: { status: "processing", stage: "queued", progress: 0, errorMessage: null },
     });
+    wakeWorker();
   } else {
     startJob(id);
   }

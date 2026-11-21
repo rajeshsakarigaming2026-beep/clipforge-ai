@@ -1,7 +1,14 @@
+import { createServer } from "node:http";
 import { prisma } from "../src/lib/db";
 import { runProjectJob, runRenderJob } from "../src/server/jobs";
 
 const active = new Set<string>();
+
+const port = Number(process.env.PORT || 10000);
+createServer((_req, res) => {
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(JSON.stringify({ ok: true, worker: true }));
+}).listen(port, "0.0.0.0", () => console.log(`worker keep-awake server listening on ${port}`));
 
 async function recover() {
   await prisma.project.updateMany({ where: { status: "processing", stage: { notIn: ["queued", "claiming"] } }, data: { stage: "queued" } });

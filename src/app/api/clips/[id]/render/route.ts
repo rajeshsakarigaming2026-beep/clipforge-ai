@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { clipEditSchema } from "@/lib/validation";
-import { rerenderClip } from "@/server/jobs";
+import { rerenderClip, wakeWorker } from "@/server/jobs";
 
 type Params = { params: Promise<{ id: string }> };
 export const runtime = "nodejs";
@@ -24,6 +24,7 @@ export async function POST(request: Request, { params }: Params) {
       create: { clipId: id, payload: JSON.stringify(parsed.data) },
       update: { payload: JSON.stringify(parsed.data), status: "pending", error: null },
     });
+    wakeWorker();
     return NextResponse.json({ ok: true, queued: true, jobId: job.id });
   }
   try {

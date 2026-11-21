@@ -17,6 +17,12 @@ const globalForJobs = globalThis as unknown as {
 const jobs = (globalForJobs.clipforgeJobs ??= new Map());
 const queue = (globalForJobs.clipforgeQueue ??= []);
 
+export function wakeWorker() {
+  const url = process.env.WORKER_URL;
+  if (!url) return;
+  void fetch(`${url.replace(/\/$/, "")}/api/health`).catch(() => undefined);
+}
+
 function resolvePython() {
   if (process.env.VIDEO_PYTHON) return process.env.VIDEO_PYTHON;
   const home = process.env.USERPROFILE || process.env.HOME || "";

@@ -78,7 +78,7 @@ Vercel can host the website and admin, but it cannot run the video worker (no Py
 
 The web service runs `prisma db push` on start, so the database schema is created automatically. Anyone can sign up; free accounts get 2 projects and 3 clips per video. Rendering runs in the worker, so closing the browser does not stop a job.
 
-Costs: Postgres has a free tier and R2 is free up to its monthly allowance; the background worker is a paid `0.5c-512mb` service. If Render needs more memory to build the Docker image, raise the web/worker plan.
+Costs: everything in `render.yaml` uses free plans (two free Render web services, one free Postgres, free Cloudflare R2). Free web services sleep after 15 idle minutes; the web service pings the worker when you process a video or re-render a clip to wake it. Free Render Postgres expires after 30 days, so refresh or upgrade it before then for a permanent deployment.
 
 ---
 

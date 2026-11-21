@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: Params) {
   const { id } = await params;
   const project = await prisma.project.findFirst({ where: { id, userId: user.id } });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-  if (project.status === "processing" && !isJobActive(id)) {
+  if (project.status === "processing" && process.env.CLOUD_WORKER !== "true" && !isJobActive(id)) {
     await prisma.project.update({
       where: { id },
       data: { status: "failed", stage: "failed", errorMessage: "Processing was interrupted. Please retry." },

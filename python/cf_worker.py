@@ -80,7 +80,7 @@ def ytdlp_run(args, binary=None, timeout=1800, capture=True):
     binary = binary or os.environ.get("YTDLP", "yt-dlp")
     command = list(args)
     is_youtube = any("youtube.com" in str(a) or "youtu.be" in str(a) for a in command)
-    clients = ["android", "tv", "web_safari", "mweb"] if is_youtube else [None]
+    clients = ["android_vr", "android", "tv", "mweb", "web_safari"] if is_youtube else [None]
     last = None
     for client in clients:
         variant = ["--extractor-args", f"youtube:player_client={client}", *command] if client else command

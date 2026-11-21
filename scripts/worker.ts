@@ -10,6 +10,13 @@ createServer((_req, res) => {
   res.end(JSON.stringify({ ok: true, worker: true }));
 }).listen(port, "0.0.0.0", () => console.log(`worker keep-awake server listening on ${port}`));
 
+const keepAliveUrl = process.env.WORKER_URL;
+if (keepAliveUrl) {
+  const ping = () => void fetch(`${keepAliveUrl.replace(/\/$/, "")}/api/health`).catch(() => undefined);
+  ping();
+  setInterval(ping, 30000);
+}
+
 async function recover() {
   await prisma.project.updateMany({ where: { status: "processing", stage: { notIn: ["queued", "claiming"] } }, data: { stage: "queued" } });
   await prisma.project.updateMany({ where: { stage: "claiming" }, data: { stage: "queued" } });

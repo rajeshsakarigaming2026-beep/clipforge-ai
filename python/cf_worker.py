@@ -73,12 +73,13 @@ def ytdlp_cookie_candidates():
         candidates.append(["--cookies", cookie_file])
     elif default_file.exists():
         candidates.append(["--cookies", str(default_file)])
-    browser = os.environ.get("YT_COOKIES_FROM_BROWSER")
-    if browser:
-        candidates.append(["--cookies-from-browser", browser])
-    else:
-        candidates.append(["--cookies-from-browser", "chrome"])
-        candidates.append(["--cookies-from-browser", "edge"])
+    if not FAST:
+        browser = os.environ.get("YT_COOKIES_FROM_BROWSER")
+        if browser:
+            candidates.append(["--cookies-from-browser", browser])
+        else:
+            candidates.append(["--cookies-from-browser", "chrome"])
+            candidates.append(["--cookies-from-browser", "edge"])
     candidates.append([])
     return candidates
 
@@ -89,6 +90,7 @@ def ytdlp_run(args, binary=None, timeout=1800, capture=True):
     is_youtube = any("youtube.com" in str(a) or "youtu.be" in str(a) for a in command)
     clients = ["android_vr", "android", "tv", "mweb", "web_safari"] if is_youtube else [None]
     last = None
+    warned = False
     for client in clients:
         variant = ["--extractor-args", f"youtube:player_client={client}", *command] if client else command
         for flags in ytdlp_cookie_candidates():
@@ -96,8 +98,9 @@ def ytdlp_run(args, binary=None, timeout=1800, capture=True):
                 return run([binary, *flags, *variant], timeout=timeout, capture=capture)
             except WorkError as exc:
                 last = exc
-                if flags:
-                    log("YouTube login source failed; trying the next available source")
+                if flags and not warned:
+                    warned = True
+                    log("Saved YouTube cookies were rejected; trying a public source")
     raise last
 
 
@@ -555,10 +558,10 @@ def fetch_url_source(url, work, yt_dlp, limit=120, live=False):
             last = exc
     if last is not None:
         detail = str(last)[:400].replace("\n", " ")
-        raise WorkError(f"Could not download the stream video: {detail}. Sign in to YouTube in the CLIPFORGE Chrome shortcut or add storage/youtube-cookies.txt, then retry.") from last
+        raise WorkError(f"Could not download the stream video: {detail}. Paste a YouTube Cookie header in Admin → YouTube cookies, then retry.") from last
     files = [p for p in work.glob("video.*") if not p.name.endswith((".part", ".ytdl"))]
     if not files:
-        raise WorkError("No video could be downloaded from that URL. Sign in to YouTube in the CLIPFORGE Chrome shortcut or add storage/youtube-cookies.txt, then retry.")
+        raise WorkError("No video could be downloaded from that URL. Paste a YouTube Cookie header in Admin → YouTube cookies, then retry.")
     return files[0]
 
 

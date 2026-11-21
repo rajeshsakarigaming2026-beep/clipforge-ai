@@ -68,6 +68,8 @@ Useful scripts: `npm run typecheck`, `npm run lint`, `npm run db:generate`.
 
 Vercel can host the website and admin, but it cannot run the video worker (no Python/FFmpeg, read-only filesystem and short function timeouts). `render.yaml` deploys the complete app: Next.js web service, Postgres database and a background worker that renders queued jobs.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Frajeshsakarigaming2026-beep%2Fclipforge-ai)
+
 1. Push this folder to a GitHub repository.
 2. Create an S3-compatible bucket (Cloudflare R2 has a generous free tier) and note its endpoint, bucket, access key and secret key.
 3. In Render, choose **New → Blueprint Instance**, connect the repository and select `render.yaml`.

@@ -81,11 +81,11 @@ export default function ProcessClient({ project }: Props) {
         </div>
       </div>
 
-      {error && <div className="mt-6 flex items-start gap-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200"><XCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
+      {error && <div className="mt-6 flex flex-wrap items-start gap-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200"><XCircle className="mt-0.5 h-4 w-4 shrink-0" /><span className="min-w-0 flex-1">{error}</span>{/youtube|cookie|bot|blocked/i.test(error) && <Link href="/admin#youtube-cookies" className="shrink-0 font-semibold text-red-100 underline underline-offset-2">Open cookie settings</Link>}</div>}
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="glass rounded-2xl p-5 sm:p-7">
-          <div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-white">Pipeline progress</h2><span className="font-mono text-sm text-violet-300">{progress}%</span></div>
+          <div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-white">Pipeline progress</h2>{failed ? <span className="font-mono text-sm text-red-300">Failed</span> : <span className="font-mono text-sm text-violet-300">{progress}%</span>}</div>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5"><motion.div className="h-full rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-blue-500 shadow-glow" animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} /></div>
           <div className="mt-8 space-y-1">
             {STAGES.map((item, index) => {

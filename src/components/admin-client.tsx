@@ -219,7 +219,7 @@ export function AdminClient({ initialSite, initialRequests, initialUsers, initia
           </div>
         </section>
 
-        <section className="glass rounded-2xl p-5 sm:p-6">
+        <section id="youtube-cookies" className="glass rounded-2xl p-5 sm:p-6">
           <div className="flex items-center justify-between"><h2 className="text-sm font-semibold">YouTube cookies</h2><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${cookiesConfigured ? "bg-emerald-500/15 text-emerald-300" : "bg-white/5 text-slate-400"}`}>{cookiesConfigured ? "Configured" : "Not set"}</span></div>
           <p className="mt-1 text-xs text-slate-500">Paste the Cookie header from DevTools on youtube.com, or a Netscape cookies.txt export. Needed for live YouTube URLs from cloud datacenter IPs.</p>
           <textarea className="input mt-4 min-h-28 font-mono !text-xs" placeholder="Cookie: VISITOR_INFO1_LIVE=…; YSC=…; …" value={cookies} onChange={(e) => setCookies(e.target.value)} />

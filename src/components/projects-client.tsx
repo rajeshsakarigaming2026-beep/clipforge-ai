@@ -61,17 +61,17 @@ export function ProjectsClient({ projects }: { projects: ProjectRow[] }) {
         {filtered.length === 0 ? (
           <div className="grid place-items-center rounded-xl border border-dashed border-white/10 py-16 text-center"><FolderOpen className="h-9 w-9 text-slate-600" /><p className="mt-3 text-sm font-medium text-slate-300">Nothing here yet</p><p className="mt-1 text-xs text-slate-500">Create a project to see it listed here.</p></div>
         ) : (
-          <div className="grid gap-3">
+          <div className="grid min-w-0 gap-3">
             {filtered.map((project) => (
-              <motion.div key={project.id} layout className="group flex flex-col gap-4 rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 transition hover:border-violet-400/25 hover:bg-white/[0.04] sm:flex-row sm:items-center">
+              <motion.div key={project.id} layout className="group flex w-full min-w-0 max-w-full flex-col gap-4 overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 transition hover:border-violet-400/25 hover:bg-white/[0.04] sm:flex-row sm:items-center">
                 <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-500/25 to-blue-500/20 text-violet-200"><FolderOpen className="h-5 w-5" /></div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2"><p className="truncate font-semibold text-white">{project.name}</p><StatusBadge status={project.status} /></div>
-                  <p className="mt-1 truncate text-xs text-slate-500">{project.sourceType === "url" ? project.sourceUrl : project.fileName} · {project.topic} · {new Date(project.createdAt).toLocaleString()}</p>
-                  {project.status === "failed" && project.errorMessage && <p className="mt-1 truncate text-xs text-red-300/80">{project.errorMessage}</p>}
+                <div className="min-w-0 max-w-full flex-1">
+                  <div className="flex min-w-0 items-center gap-2 overflow-hidden"><p className="min-w-0 truncate font-semibold text-white">{project.name}</p><StatusBadge status={project.status} /></div>
+                  <p className="mt-1 max-w-full truncate text-xs text-slate-500">{project.sourceType === "url" ? project.sourceUrl : project.fileName} · {project.topic} · {new Date(project.createdAt).toLocaleString()}</p>
+                  {project.status === "failed" && project.errorMessage && <p className="mt-1 max-w-full truncate text-xs text-red-300/80">{project.errorMessage}</p>}
                   {project.status === "processing" && <div className="mt-2 h-1 w-full max-w-xs overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-blue-500 transition-all" style={{ width: `${project.progress}%` }} /></div>}
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex w-full min-w-0 shrink-0 flex-wrap items-center gap-2">
                   <span className="mr-2 text-xs text-slate-500">{project.clips.length} clips</span>
                   {project.status === "completed" ? (
                     <Link href={`/projects/${project.id}/clips`} className="btn-secondary !px-3 !py-2 !text-xs"><ArrowUpRight className="h-3.5 w-3.5" /> Open</Link>

@@ -57,7 +57,7 @@ export function AuthForm({ mode, notice }: { mode: "login" | "signup"; notice?: 
           <p className="mt-6 text-center text-sm text-slate-400">{mode === "login" ? "New here? " : "Already have an account? "}<Link href={mode === "login" ? "/signup" : "/login"} className="font-semibold text-violet-300 hover:text-violet-200">{mode === "login" ? "Create an account" : "Sign in"}</Link></p>
         </form>
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-500"><Sparkles className="h-3.5 w-3.5 text-violet-400" /><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Local processing · no credit card</div>
-        <p className="mt-4 text-center text-xs text-slate-600"><Link href="/" className="hover:text-slate-400">← Back to home</Link></p>
+        <p className="mt-4 text-center text-xs text-slate-600"><Link href="/" className="inline-flex min-h-10 items-center px-2 hover:text-slate-400">← Back to home</Link></p>
       </motion.div>
     </div>
   );

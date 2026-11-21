@@ -84,7 +84,7 @@ export function AppShell({ user, children }: { user: { name: string; email: stri
       <div className="lg:pl-[248px]">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/[0.06] bg-[#05060d]/80 px-4 backdrop-blur-xl sm:px-8">
           <div className="flex items-center gap-3">
-            <button onClick={() => setOpen(true)} className="rounded-lg p-2 text-slate-300 lg:hidden"><Menu className="h-5 w-5" /></button>
+            <button onClick={() => setOpen(true)} className="rounded-lg p-3 text-slate-300 lg:hidden"><Menu className="h-5 w-5" /></button>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400"><Clapperboard className="h-4 w-4 text-violet-400" /> AI video workspace</div>
           </div>
           {hosted ? <a href={`${CLOUD_APP_URL}/projects/new`} className="hidden items-center gap-2 rounded-lg border border-violet-400/25 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-200 transition hover:bg-violet-500/20 sm:inline-flex"><Plus className="h-3.5 w-3.5" /> Open full app</a> : <Link href="/projects/new" className="hidden items-center gap-2 rounded-lg border border-violet-400/25 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-200 transition hover:bg-violet-500/20 sm:inline-flex"><Plus className="h-3.5 w-3.5" /> Create</Link>}

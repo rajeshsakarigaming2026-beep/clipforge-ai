@@ -96,7 +96,7 @@ export default function NewProjectPage() {
 
   return (
     <div>
-      <button onClick={() => router.back()} className="text-xs text-slate-400 transition hover:text-white">← Back</button>
+      <button onClick={() => router.back()} className="inline-flex min-h-10 items-center py-2 text-xs text-slate-400 transition hover:text-white">← Back</button>
       {hosted && <div className="mt-4 rounded-xl border border-violet-400/25 bg-violet-500/10 px-4 py-3 text-sm text-violet-200"><p className="font-semibold">This website is the public demo.</p><p className="mt-1 text-xs text-violet-200/80">Create projects and render clips on the full CLIPFORGE app: <a href={CLOUD_APP_URL} className="font-semibold underline">{CLOUD_APP_URL}</a></p></div>}
       <div className="mt-4"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300">New project</p><h1 className="mt-2 text-3xl font-bold text-white">Create viral clips</h1><p className="mt-1 text-sm text-slate-400">Bring a long video. We&apos;ll find the moments and render the shorts.</p></div>
 

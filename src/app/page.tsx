@@ -71,13 +71,13 @@ export default function Landing() {
             <Link href="/login" className="text-sm font-medium text-slate-300 transition hover:text-white">Sign in</Link>
             <Link href="/signup" className="btn-primary !px-4 !py-2 text-xs">Start free <ArrowRight className="h-3.5 w-3.5" /></Link>
           </div>
-          <button className="rounded-lg p-2 text-slate-300 md:hidden" onClick={() => setMenu(!menu)} aria-label="Menu">{menu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
+          <button className="rounded-lg p-3 text-slate-300 md:hidden" onClick={() => setMenu(!menu)} aria-label="Menu">{menu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
         </div>
         {menu && (
           <div className="border-t border-white/5 bg-[#080a14] px-5 py-4 md:hidden">
             <div className="flex flex-col gap-3 text-sm text-slate-300">
-              <a href="#features" onClick={() => setMenu(false)}>Features</a><a href="#how" onClick={() => setMenu(false)}>How it works</a><a href="#pricing" onClick={() => setMenu(false)}>Pricing</a>
-              <Link href="/login">Sign in</Link><Link href="/signup" className="btn-primary mt-2">Start free</Link>
+              <a className="py-3" href="#features" onClick={() => setMenu(false)}>Features</a><a className="py-3" href="#how" onClick={() => setMenu(false)}>How it works</a><a className="py-3" href="#pricing" onClick={() => setMenu(false)}>Pricing</a>
+              <Link className="py-3" href="/login">Sign in</Link><Link href="/signup" className="btn-primary mt-2">Start free</Link>
             </div>
           </div>
         )}

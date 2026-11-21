@@ -78,7 +78,7 @@ export default function EditorClient({ projectId, clip }: { projectId: string; c
 
   return (
     <div>
-      <Link href={`/projects/${projectId}/clips`} className="text-xs text-slate-400 transition hover:text-white">← Back to clips</Link>
+      <Link href={`/projects/${projectId}/clips`} className="inline-flex min-h-10 items-center py-2 text-xs text-slate-400 transition hover:text-white">← Back to clips</Link>
       <div className="mt-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300">Video editor</p><h1 className="mt-2 max-w-xl truncate text-2xl font-bold text-white sm:text-3xl">{clip.title}</h1><p className="mt-1 text-xs text-slate-400">Source segment: {formatDuration(clip.startTime)} – {formatDuration(clip.endTime)}</p></div>
         <div className="flex gap-2">

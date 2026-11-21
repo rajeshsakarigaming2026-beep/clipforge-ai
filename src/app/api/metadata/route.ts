@@ -138,8 +138,8 @@ export async function GET(request: Request) {
       lastError = "YouTube metadata fallback unavailable";
     }
   }
-  const hint = isYouTube && /sign in|not a bot/i.test(lastError)
-    ? "YouTube is blocking this cloud IP. Try a different public link or retry later. "
-    : "Could not read this video. It may be private, live, region-locked or require a login. ";
-  return NextResponse.json({ error: `${hint}${lastError.slice(0, 400)}` }, { status: 422 });
+  const hint = isYouTube
+    ? "Details are not available from this cloud preview. You can still generate clips."
+    : "Could not read this video. It may be private, live, region-locked or require a login.";
+  return NextResponse.json({ error: hint }, { status: 422 });
 }

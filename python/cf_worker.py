@@ -2,7 +2,7 @@
 """CLIPFORGE AI processing worker.
 
 Runs locally. It transcribes with faster-whisper, finds highlight windows from audio
-energy / speech density / scene changes, then renders real 1080x1920 MP4 clips with
+energy / speech density / scene changes, then renders vertical MP4 clips with
 ffmpeg (facecam-aware framing, karaoke captions, title bar, loudness normalisation).
 
 Progress is emitted on stdout as newline-delimited JSON so the Node job manager can
@@ -25,7 +25,11 @@ os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 
 import numpy as np
 
-W, H = 1080, 1920
+LOW_MEMORY = os.environ.get("RENDER") == "true" or os.environ.get("CLIPFORGE_LOW_MEMORY") == "true"
+W, H = (540, 960) if LOW_MEMORY else (1080, 1920)
+SW, SH = (960, 540) if LOW_MEMORY else (1920, 1080)
+CAP_SIZE = 41 if LOW_MEMORY else 82
+TITLE_SIZE = 27 if LOW_MEMORY else 54
 RATE = 16000
 STOP = set("the a an and or but if to of in on at for with is are was were be been being this that these those it its as by from we you they i he she our your their my me him her them do does did have has had not no so just about into out up down over then than there here what when where who why how all any some can will would could should now get got go going one two really very much more most".split())
 HOT = re.compile(r"\b(wow|haha|lol|lmao|insane|crazy|unreal|amazing|incredible|no way|oh my|let'?s go|clutch|gone|finally|restart|perfect|bruh|what the|holy|nuts|sick|epic|victory|won|win|lose|lost|kill|goal|ace|chrome|funny|fail|wild|omg|damn|fuck|shit|unbelievable|savage|died|dead|crash|explode|explosion|scared|danger|panic)\b", re.I)
@@ -354,11 +358,11 @@ def ass_color(hex_color):
 def write_captions(words, start, end, dest, title, cap_color, active_color, font):
     local = [w for w in words if w["e"] > start and w["s"] < end]
     lines = [
-        "[Script Info]", "ScriptType: v4.00+", "PlayResX: 1080", "PlayResY: 1920",
+        "[Script Info]", "ScriptType: v4.00+", f"PlayResX: {W}", f"PlayResY: {H}",
         "WrapStyle: 2", "ScaledBorderAndShadow: yes", "", "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Cap,{font},82,{ass_color(cap_color)},{ass_color(active_color)},&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,2,5,60,60,0,1",
-        f"Style: Title,{font},54,{ass_color(cap_color)},{ass_color(cap_color)},&H00000000,&H90000000,-1,0,0,0,100,100,1,0,3,5,0,5,40,40,0,1",
+        f"Style: Cap,{font},{CAP_SIZE},{ass_color(cap_color)},{ass_color(active_color)},&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,2,5,60,60,0,1",
+        f"Style: Title,{font},{TITLE_SIZE},{ass_color(cap_color)},{ass_color(cap_color)},&H00000000,&H90000000,-1,0,0,0,100,100,1,0,3,5,0,5,40,40,0,1",
         "", "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
 
@@ -400,20 +404,20 @@ def plan_graph(face, layout, zoom=1.0, cam=(0.72, 0.0, 0.28, 0.30)):
     if layout not in ("stack", "crop", "blur"):
         layout = "blur"
 
-    normalise = ("[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,"
+    normalise = (f"[0:v]scale={SW}:{SH}:force_original_aspect_ratio=increase,crop={SW}:{SH},"
                  "setsar=1")
     if layout == "stack":
         base = normalise + ",split=2[fg][cam]"
-        top_h = 730
+        top_h = 365 if LOW_MEMORY else 730
         bottom_h = H - top_h
         fx, fy, fw, fh = cam
-        crop_w = max(80, min(1920, int(fw * 1920)))
-        crop_h = max(60, min(1080, int(fh * 1080)))
-        cx = max(0, min(1920 - crop_w, int(fx * 1920)))
-        cy = max(0, min(1080 - crop_h, int(fy * 1080)))
+        crop_w = max(40, min(SW, int(fw * SW)))
+        crop_h = max(30, min(SH, int(fh * SH)))
+        cx = max(0, min(SW - crop_w, int(fx * SW)))
+        cy = max(0, min(SH - crop_h, int(fy * SH)))
         camchain = (f"[cam]crop={crop_w}:{crop_h}:{cx}:{cy},"
                     f"scale={W}:{top_h}:force_original_aspect_ratio=increase,crop={W}:{top_h},setsar=1[camx]")
-        gamechain = (f"[fg]scale={W}:{bottom_h + 220}:force_original_aspect_ratio=increase,"
+        gamechain = (f"[fg]scale={W}:{bottom_h + (110 if LOW_MEMORY else 220)}:force_original_aspect_ratio=increase,"
                      f"crop={W}:{bottom_h},setsar=1[game]")
         merge = "[camx][game]vstack=inputs=2[framed]"
         return ";".join([base, camchain, gamechain, merge]), "framed", layout
@@ -422,17 +426,17 @@ def plan_graph(face, layout, zoom=1.0, cam=(0.72, 0.0, 0.28, 0.30)):
         fx, fy, fw, fh = face or (0.5, 0.4, 0.2, 0.25)
         cx = max(0.0, min(1.0, fx + fw / 2))
         cy = max(0.0, min(1.0, fy + fh / 2))
-        cropw = max(200, int(1920 / max(1.0, float(zoom))))
-        croph = max(200, int(cropw * H / W))
-        x = max(0, min(1920 - cropw, int(cx * 1920 - cropw / 2)))
-        y = max(0, min(1080 - croph, int(cy * 1080 - croph / 2)))
+        cropw = max(100, int(SW / max(1.0, float(zoom))))
+        croph = max(100, int(cropw * H / W))
+        x = max(0, min(SW - cropw, int(cx * SW - cropw / 2)))
+        y = max(0, min(SH - croph, int(cy * SH - croph / 2)))
         chain = (normalise + f",crop={cropw}:{croph}:{x}:{y},"
                  f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1[framed]")
         return chain, "framed", layout
 
     base = normalise + ",split=2[bg][fg]"
     bg = (f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
-          f"gblur=sigma=35,eq=brightness=-0.12[bgb]")
+          f"gblur=sigma={18 if LOW_MEMORY else 35},eq=brightness=-0.12[bgb]")
     merge = (f"[fg]scale={W}:{H}:force_original_aspect_ratio=decrease,setsar=1[fgs];"
              f"[bgb][fgs]overlay=(W-w)/2:(H-h)/2[framed]")
     return ";".join([base, bg, merge]), "framed", layout
@@ -447,7 +451,7 @@ def render_clip(source, pick, work, dest, opts, words):
     ffmpeg = opts["ffmpeg"]
     if is_url:
         if not src.exists():
-            fmt = ("bv*[height<=1080][vcodec^=avc1]+ba/bv*[height<=1080]+ba/b[height<=1080]/bv*+ba/b")
+            fmt = (f"bv*[height<={SH}][vcodec^=avc1]+ba/bv*[height<={SH}]+ba/b[height<={SH}]/bv*+ba/b")
             ytdlp_run(["--no-playlist", "--no-warnings",
                        "--socket-timeout", "15", "--retries", "2", "-f", fmt,
                        "--merge-output-format", "mp4", "--download-sections",
@@ -491,8 +495,10 @@ def render_clip(source, pick, work, dest, opts, words):
     if music and Path(music).exists():
         cmd += ["-stream_loop", "-1", "-i", str(music)]
     cmd += ["-filter_complex", filters, "-map", "[vout]", "-map", audio_out,
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p",
-            "-profile:v", "high", "-r", "30", "-c:a", "aac", "-b:a", "192k",
+            "-c:v", "libx264", "-preset", "ultrafast" if LOW_MEMORY else "veryfast",
+            "-crf", "26" if LOW_MEMORY else "22", "-pix_fmt", "yuv420p",
+            "-threads", "2", "-filter_threads", "2",
+            "-profile:v", "high", "-r", "30", "-c:a", "aac", "-b:a", "128k" if LOW_MEMORY else "192k",
             "-movflags", "+faststart", str(dest)]
     run(cmd, timeout=3600, cwd=str(work))
     thumb = dest.with_name(dest.stem + ".jpg")

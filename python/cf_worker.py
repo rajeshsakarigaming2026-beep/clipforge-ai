@@ -26,10 +26,13 @@ os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 import numpy as np
 
 LOW_MEMORY = os.environ.get("RENDER") == "true" or os.environ.get("CLIPFORGE_LOW_MEMORY") == "true"
-W, H = (540, 960) if LOW_MEMORY else (1080, 1920)
-SW, SH = (960, 540) if LOW_MEMORY else (1920, 1080)
-CAP_SIZE = 41 if LOW_MEMORY else 82
-TITLE_SIZE = 27 if LOW_MEMORY else 54
+FAST = LOW_MEMORY or os.environ.get("CLIPFORGE_FAST") == "true"
+W, H = (480, 854) if FAST else (1080, 1920)
+SW, SH = (960, 540) if FAST else (1920, 1080)
+CAP_SIZE = 36 if FAST else 82
+TITLE_SIZE = 24 if FAST else 54
+FPS = 24 if FAST else 30
+FAST_SOURCE_SECONDS = 300
 RATE = 16000
 STOP = set("the a an and or but if to of in on at for with is are was were be been being this that these those it its as by from we you they i he she our your their my me him her them do does did have has had not no so just about into out up down over then than there here what when where who why how all any some can will would could should now get got go going one two really very much more most".split())
 HOT = re.compile(r"\b(wow|haha|lol|lmao|insane|crazy|unreal|amazing|incredible|no way|oh my|let'?s go|clutch|gone|finally|restart|perfect|bruh|what the|holy|nuts|sick|epic|victory|won|win|lose|lost|kill|goal|ace|chrome|funny|fail|wild|omg|damn|fuck|shit|unbelievable|savage|died|dead|crash|explode|explosion|scared|danger|panic)\b", re.I)
@@ -171,6 +174,15 @@ def volume_curve(samples):
     return (20 * np.log10(np.sqrt(np.mean(sec ** 2, axis=1)) + 1e-5)).astype(np.float32)
 
 
+def has_speech(samples):
+    n = len(samples) // RATE
+    if n < 2:
+        return False
+    rms = np.sqrt(np.mean(samples[: n * RATE].reshape(n, RATE) ** 2, axis=1) + 1e-9)
+    voiced = int(np.count_nonzero(rms > 0.012))
+    return voiced >= max(2, int(n * 0.02))
+
+
 def spikes(curve, window=120):
     if len(curve) < 10:
         return np.zeros_like(curve)
@@ -235,7 +247,7 @@ def classify(text):
 
 def pick_moments(words, curve, scenes, duration, count, topic):
     count = max(3, count)
-    length = min(45.0, max(22.0, duration / max(1, count) * 0.45))
+    length = min(35.0 if FAST else 45.0, max(18.0 if FAST else 22.0, duration / max(1, count) * 0.45))
     if duration < 18:
         length = max(8.0, duration - 1.0)
     energy = spikes(curve)
@@ -373,7 +385,7 @@ def write_captions(words, start, end, dest, title, cap_color, active_color, font
         s = sec % 60
         return f"{h}:{m:02d}:{s:05.2f}"
 
-    lines.append(f"Dialogue: 0,{ts(0.3)},{ts(end-start)},Title,,0,0,0,,{{\\pos(540,120)}}{title[:90]}")
+    lines.append(f"Dialogue: 0,{ts(0.3)},{ts(end-start)},Title,,0,0,0,,{{\\pos({W // 2},{int(H * 0.11)})}}{title[:90]}")
     groups = []
     for i in range(0, len(local), 3):
         groups.append(local[i:i + 3])
@@ -388,7 +400,7 @@ def write_captions(words, start, end, dest, title, cap_color, active_color, font
                 color = active_color if j == idx else cap_color
                 text = w["w"].replace("{", "").replace("}", "")
                 parts.append("{\\c" + ass_color(color) + "}" + text)
-            lines.append(f"Dialogue: 1,{ts(a)},{ts(b)},Cap,,0,0,0,,{{\\pos(540,1500)\\an5}} " + " ".join(parts))
+            lines.append(f"Dialogue: 1,{ts(a)},{ts(b)},Cap,,0,0,0,,{{\\pos({W // 2},{int(H * 0.82)})\\an5}} " + " ".join(parts))
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -408,7 +420,7 @@ def plan_graph(face, layout, zoom=1.0, cam=(0.72, 0.0, 0.28, 0.30)):
                  "setsar=1")
     if layout == "stack":
         base = normalise + ",split=2[fg][cam]"
-        top_h = 365 if LOW_MEMORY else 730
+        top_h = 365 if FAST else 730
         bottom_h = H - top_h
         fx, fy, fw, fh = cam
         crop_w = max(40, min(SW, int(fw * SW)))
@@ -417,7 +429,7 @@ def plan_graph(face, layout, zoom=1.0, cam=(0.72, 0.0, 0.28, 0.30)):
         cy = max(0, min(SH - crop_h, int(fy * SH)))
         camchain = (f"[cam]crop={crop_w}:{crop_h}:{cx}:{cy},"
                     f"scale={W}:{top_h}:force_original_aspect_ratio=increase,crop={W}:{top_h},setsar=1[camx]")
-        gamechain = (f"[fg]scale={W}:{bottom_h + (110 if LOW_MEMORY else 220)}:force_original_aspect_ratio=increase,"
+        gamechain = (f"[fg]scale={W}:{bottom_h + (110 if FAST else 220)}:force_original_aspect_ratio=increase,"
                      f"crop={W}:{bottom_h},setsar=1[game]")
         merge = "[camx][game]vstack=inputs=2[framed]"
         return ";".join([base, camchain, gamechain, merge]), "framed", layout
@@ -435,8 +447,12 @@ def plan_graph(face, layout, zoom=1.0, cam=(0.72, 0.0, 0.28, 0.30)):
         return chain, "framed", layout
 
     base = normalise + ",split=2[bg][fg]"
-    bg = (f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
-          f"gblur=sigma={18 if LOW_MEMORY else 35},eq=brightness=-0.12[bgb]")
+    if FAST:
+        bg = (f"[bg]scale=108:192:force_original_aspect_ratio=increase,crop=108:192,"
+              f"scale={W}:{H}:flags=bicubic,gblur=sigma=4,eq=brightness=-0.12[bgb]")
+    else:
+        bg = (f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+              f"gblur=sigma=35,eq=brightness=-0.12[bgb]")
     merge = (f"[fg]scale={W}:{H}:force_original_aspect_ratio=decrease,setsar=1[fgs];"
              f"[bgb][fgs]overlay=(W-w)/2:(H-h)/2[framed]")
     return ";".join([base, bg, merge]), "framed", layout
@@ -467,7 +483,9 @@ def render_clip(source, pick, work, dest, opts, words):
         inpoint = start
         source_input = source
 
-    face = face_box(Path(source_input), ffmpeg, opts["ffprobe"])
+    face = opts.get("face", "detect")
+    if face == "detect":
+        face = face_box(Path(source_input), ffmpeg, opts["ffprobe"])
     graph, label, layout = plan_graph(face, pick.get("layout") or opts.get("layout") or "auto",
                                       float(pick.get("zoom", 1.0)),
                                       (float(pick.get("camX", 0.72)), float(pick.get("camY", 0)),
@@ -478,7 +496,7 @@ def render_clip(source, pick, work, dest, opts, words):
                    pick.get("highlightColor", opts.get("highlightColor", "#FFD400")),
                    pick.get("fontFamily", opts.get("fontFamily", "Arial Black")))
     speed = float(pick.get("playbackSpeed", 1.0) or 1.0)
-    filters = f"{graph};[{label}]setpts=PTS/{speed},ass={ass.name}[vout]"
+    filters = f"{graph};[{label}]fps={FPS},setpts=PTS/{speed},ass={ass.name}[vout]"
     if speed != 1.0:
         filters += ";[0:a]atempo=" + str(speed) + "[aspeed]"
         audio_label = "[aspeed]"
@@ -495,10 +513,11 @@ def render_clip(source, pick, work, dest, opts, words):
     if music and Path(music).exists():
         cmd += ["-stream_loop", "-1", "-i", str(music)]
     cmd += ["-filter_complex", filters, "-map", "[vout]", "-map", audio_out,
-            "-c:v", "libx264", "-preset", "ultrafast" if LOW_MEMORY else "veryfast",
-            "-crf", "26" if LOW_MEMORY else "22", "-pix_fmt", "yuv420p",
+            "-c:v", "libx264", "-preset", "ultrafast" if FAST else "veryfast",
+            "-crf", "28" if FAST else "22", "-pix_fmt", "yuv420p",
             "-threads", "2", "-filter_threads", "2",
-            "-profile:v", "high", "-r", "30", "-c:a", "aac", "-b:a", "128k" if LOW_MEMORY else "192k",
+            "-x264-params", "scenecut=0:aq-mode=0" if FAST else "aq-mode=1",
+            "-profile:v", "high", "-r", str(FPS), "-c:a", "aac", "-b:a", "96k" if FAST else "192k",
             "-movflags", "+faststart", str(dest)]
     run(cmd, timeout=3600, cwd=str(work))
     thumb = dest.with_name(dest.stem + ".jpg")
@@ -565,7 +584,8 @@ def main():
               "highlightColor": settings.get("highlightColor", "#FFD400"),
               "fontFamily": settings.get("fontFamily", "Arial Black"),
               "layout": settings.get("layout", "auto"),
-              "music": settings.get("music")}
+              "music": settings.get("music"),
+              "face": None if FAST else "detect"}
     work = Path(opts.workdir)
     outdir = Path(opts.outdir)
     work.mkdir(parents=True, exist_ok=True)
@@ -583,8 +603,11 @@ def main():
             emit("done", duration=0, clips=[{**pick, **rendered}])
             return
 
+        if FAST:
+            log("Fast mode: shorter source, lighter rendering")
         progress("downloading", 6, "Inspecting the source video")
         analysis_source = source
+        source_limit = min(opts.max_source_seconds, FAST_SOURCE_SECONDS) if FAST else opts.max_source_seconds
         if is_url:
             meta = ytdlp_run(["--no-playlist", "--no-warnings", "--socket-timeout", "15",
                               "--retries", "2", "-J", source], binary=opts.ytdlp, timeout=90)
@@ -592,8 +615,8 @@ def main():
             is_live = bool(info.get("is_live") and not info.get("was_live"))
             if is_live:
                 progress("downloading", 10, "Live stream detected - recording the opening segment")
-            progress("downloading", 12, f"Downloading the first {opts.max_source_seconds // 60} minute(s) of the stream")
-            analysis_source = str(fetch_url_source(source, work, opts.ytdlp, opts.max_source_seconds, is_live))
+            progress("downloading", 12, f"Downloading the first {source_limit // 60} minute(s) of the stream")
+            analysis_source = str(fetch_url_source(source, work, opts.ytdlp, source_limit, is_live))
         else:
             if not Path(source).exists():
                 raise WorkError(f"Source file is missing: {source}")
@@ -604,13 +627,21 @@ def main():
         log(f"source: {info['width']}x{info['height']}, {duration:.1f}s")
         progress("downloading", 22, f"Decoding {duration / 60:.1f} min of audio")
         samples = load_audio(analysis_source, opts.ffmpeg)
-        progress("transcribing", 32, "Loading local speech-to-text model")
-        words, language = transcribe(samples, None if opts.language == "auto" else opts.language,
-                                     settings.get("scanModel", "tiny"))
-        log(f"transcribed {len(words)} words (language: {language})")
+        analysis_samples = samples[:FAST_SOURCE_SECONDS * RATE] if FAST else samples
+        analysis_duration = min(duration, len(analysis_samples) / RATE) if FAST else duration
+        if FAST and analysis_duration < duration:
+            log(f"Fast mode: analyzing first {analysis_duration / 60:.1f} min of the source")
+        if FAST and not has_speech(analysis_samples):
+            words, language = [], None if opts.language == "auto" else opts.language
+            log("Skipped speech-to-text: no speech detected in the analyzed segment")
+        else:
+            progress("transcribing", 32, "Loading local speech-to-text model")
+            words, language = transcribe(analysis_samples, None if opts.language == "auto" else opts.language,
+                                         settings.get("scanModel", "tiny"))
+            log(f"transcribed {len(words)} words (language: {language})")
         progress("analyzing", 55, "Scoring energy, speech and scene changes")
-        scenes = scene_times(analysis_source, opts.ffmpeg, duration)
-        picks = pick_moments(words, volume_curve(samples), scenes, duration, opts.clips, opts.topic)
+        scenes = [] if FAST else scene_times(analysis_source, opts.ffmpeg, duration)
+        picks = pick_moments(words, volume_curve(analysis_samples), scenes, analysis_duration, opts.clips, opts.topic)
         if not picks:
             raise WorkError("No highlight moments could be found in this video.")
         for pick in picks:
@@ -625,7 +656,7 @@ def main():
                                    pick["words"])
             results.append({**pick, **rendered})
         progress("finalizing", 97, "Saving clip metadata")
-        emit("done", duration=round(duration, 2), language=language, clips=results)
+        emit("done", duration=round(duration, 2), language=language or "auto", clips=results)
     except Exception as exc:
         emit("error", message=str(exc)[:1200])
         sys.exit(1)

@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import path from "node:path";
 import { getSessionUser } from "@/lib/auth";
 import { isSupportedUrl } from "@/lib/utils";
+import { storage } from "@/lib/storage";
 
 const exec = promisify(execFile);
 export const runtime = "nodejs";
@@ -27,12 +28,15 @@ export async function GET(request: Request) {
   if (!isSupportedUrl(url)) return NextResponse.json({ error: "Unsupported URL. Use YouTube, Twitch, Kick or Vimeo." }, { status: 400 });
   const isYouTube = url.includes("youtube.com") || url.includes("youtu.be");
   const clients = isYouTube ? ["android_vr", "android", "tv", "mweb", "web_safari"] : [""];
+  let cookieFile = process.env.YT_COOKIES_FILE;
+  if (!cookieFile && isYouTube && await storage.exists("secrets/youtube-cookies.txt")) {
+    cookieFile = await storage.localPath("secrets/youtube-cookies.txt");
+  }
   let lastError = "Could not read video metadata";
   for (const client of clients) {
     try {
       const args = ["--no-playlist", "--no-warnings", "--socket-timeout", "10", "--retries", "1", "--skip-download"];
       if (client) args.push("--extractor-args", `youtube:player_client=${client}`);
-      const cookieFile = process.env.YT_COOKIES_FILE;
       if (cookieFile) args.push("--cookies", cookieFile);
       const { stdout } = await exec(ytDlp(), [...args, "-J", url], { timeout: 30000, maxBuffer: 20 * 1024 * 1024 });
       const data = JSON.parse(stdout);
@@ -66,5 +70,8 @@ export async function GET(request: Request) {
       lastError = "YouTube metadata fallback unavailable";
     }
   }
-  return NextResponse.json({ error: `Could not read this video. It may be private, live, region-locked or require a login. ${lastError.slice(0, 400)}` }, { status: 422 });
+  const hint = isYouTube && /sign in|not a bot/i.test(lastError)
+    ? "YouTube blocked this cloud IP. Paste a YouTube Cookie header in Admin → YouTube cookies and retry. "
+    : "Could not read this video. It may be private, live, region-locked or require a login. ";
+  return NextResponse.json({ error: `${hint}${lastError.slice(0, 400)}` }, { status: 422 });
 }

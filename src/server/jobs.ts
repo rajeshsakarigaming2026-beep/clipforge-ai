@@ -23,6 +23,14 @@ export function wakeWorker() {
   void fetch(`${url.replace(/\/$/, "")}/api/health`).catch(() => undefined);
 }
 
+async function youtubeCookieFile() {
+  if (process.env.YT_COOKIES_FILE) return process.env.YT_COOKIES_FILE;
+  if (await storage.exists("secrets/youtube-cookies.txt")) {
+    return storage.localPath("secrets/youtube-cookies.txt");
+  }
+  return undefined;
+}
+
 function resolvePython() {
   if (process.env.VIDEO_PYTHON) return process.env.VIDEO_PYTHON;
   const home = process.env.USERPROFILE || process.env.HOME || "";
@@ -120,6 +128,7 @@ export async function runProjectJob(projectId: string) {
   };
   const maxSourceSeconds = Math.max(30, Math.min(7200, Number(process.env.MAX_SOURCE_SECONDS || 1800) || 1800));
 
+  const cookies = await youtubeCookieFile();
   const child = spawn(resolvePython(), [
     path.join(process.cwd(), "python", "cf_worker.py"),
     "--source", sourcePath,
@@ -133,7 +142,7 @@ export async function runProjectJob(projectId: string) {
     "--ffmpeg", process.env.FFMPEG_BIN || "ffmpeg",
     "--ffprobe", process.env.FFPROBE_BIN || "ffprobe",
     "--ytdlp", resolveYtDlp(),
-  ], { cwd: process.cwd(), env: { ...process.env, PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1" } });
+  ], { cwd: process.cwd(), env: { ...process.env, PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1", ...(cookies ? { YT_COOKIES_FILE: cookies } : {}) } });
 
   jobs.set(projectId, { child, startedAt: Date.now() });
   await prisma.project.update({ where: { id: projectId }, data: { status: "processing", stage: "downloading", progress: 2, errorMessage: null } });
@@ -248,6 +257,9 @@ async function handleEvent(projectId: string, event: Record<string, unknown>) {
 }
 
 async function fail(projectId: string, message: string) {
+  if (/sign in to confirm|not a bot|please sign in/i.test(message)) {
+    message = "YouTube blocked this cloud IP. Paste a YouTube Cookie header in Admin → YouTube cookies and retry.";
+  }
   await prisma.project.update({
     where: { id: projectId },
     data: { status: "failed", stage: "failed", errorMessage: message },

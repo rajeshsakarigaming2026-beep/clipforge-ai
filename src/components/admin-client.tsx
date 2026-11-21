@@ -30,8 +30,11 @@ type Grant = {
   createdAt: string;
 };
 
-export function AdminClient({ initialSite, initialRequests, initialUsers, initialGrants }: { initialSite: SiteData; initialRequests: RequestItem[]; initialUsers: UserAccess[]; initialGrants: Grant[] }) {
+export function AdminClient({ initialSite, initialRequests, initialUsers, initialGrants, initialCookiesConfigured }: { initialSite: SiteData; initialRequests: RequestItem[]; initialUsers: UserAccess[]; initialGrants: Grant[]; initialCookiesConfigured: boolean }) {
   const [site, setSite] = useState<SiteData>(initialSite);
+  const [cookies, setCookies] = useState("");
+  const [cookiesConfigured, setCookiesConfigured] = useState(initialCookiesConfigured);
+  const [cookiesBusy, setCookiesBusy] = useState(false);
   const [requests, setRequests] = useState<RequestItem[]>(initialRequests);
   const [users, setUsers] = useState<UserAccess[]>(initialUsers);
   const [grants, setGrants] = useState<Grant[]>(initialGrants);
@@ -62,6 +65,22 @@ export function AdminClient({ initialSite, initialRequests, initialUsers, initia
       setError(err instanceof Error ? err.message : "Could not save");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function saveCookies() {
+    setCookiesBusy(true); setMessage(""); setError("");
+    try {
+      const res = await fetch("/api/admin/youtube-cookies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cookies }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not save cookies");
+      setCookiesConfigured(true);
+      setCookies("");
+      setMessage("YouTube cookies saved. New link jobs will use them.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save cookies");
+    } finally {
+      setCookiesBusy(false);
     }
   }
 
@@ -198,6 +217,13 @@ export function AdminClient({ initialSite, initialRequests, initialUsers, initia
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="glass rounded-2xl p-5 sm:p-6">
+          <div className="flex items-center justify-between"><h2 className="text-sm font-semibold">YouTube cookies</h2><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${cookiesConfigured ? "bg-emerald-500/15 text-emerald-300" : "bg-white/5 text-slate-400"}`}>{cookiesConfigured ? "Configured" : "Not set"}</span></div>
+          <p className="mt-1 text-xs text-slate-500">Paste the Cookie header from DevTools on youtube.com, or a Netscape cookies.txt export. Needed for live YouTube URLs from cloud datacenter IPs.</p>
+          <textarea className="input mt-4 min-h-28 font-mono !text-xs" placeholder="Cookie: VISITOR_INFO1_LIVE=…; YSC=…; …" value={cookies} onChange={(e) => setCookies(e.target.value)} />
+          <button disabled={cookiesBusy || !cookies.trim()} onClick={saveCookies} className="btn-secondary mt-3 !py-2 !text-xs">{cookiesBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save cookies"}</button>
         </section>
 
         <section className="glass rounded-2xl p-5 sm:p-6">

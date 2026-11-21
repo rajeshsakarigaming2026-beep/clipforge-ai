@@ -39,7 +39,9 @@ export default function NewProjectPage() {
       if (!res.ok) throw new Error(data.error || "Could not fetch details");
       setMeta(data);
       if (!name) setName(data.title);
-    } catch (err) { setError(err instanceof Error ? err.message : "Could not fetch details"); }
+    } catch (err) { setError("Details unavailable, but you can still generate clips. " + (err instanceof Error ? err.message.slice(0, 160) : ""));
+      if (!name) setName(url.slice(0, 80));
+    }
     finally { setBusy(""); }
   }
 
@@ -118,7 +120,7 @@ export default function NewProjectPage() {
                   <input value={url} onChange={(e) => { setUrl(e.target.value); setMeta(null); }} placeholder="https://www.Video.com/watch?v=…" className="input" disabled={hosted} />
                   <button onClick={fetchMeta} disabled={hosted || busy === "meta"} className="btn-secondary shrink-0 !text-xs">{busy === "meta" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />} Fetch details</button>
                 </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-slate-500">Only public, accessible or recorded videos. Live streams must be finished. We never bypass logins or DRM.</p>
+                <p className="mt-2 text-[11px] leading-relaxed text-slate-500">Public, accessible or recorded videos. Live streams are recorded from the start when possible. We never bypass logins or DRM.</p>
               </div>
             ) : (
               <div className="mt-5">

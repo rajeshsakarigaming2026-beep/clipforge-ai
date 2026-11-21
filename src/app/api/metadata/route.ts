@@ -26,7 +26,9 @@ export async function GET(request: Request) {
   const url = requestUrl.searchParams.get("url") || "";
   if (!isSupportedUrl(url)) return NextResponse.json({ error: "Unsupported URL. Use YouTube, Twitch, Kick or Vimeo." }, { status: 400 });
   try {
-    const { stdout } = await exec(ytDlp(), ["--no-playlist", "--no-warnings", "--socket-timeout", "10", "--retries", "1", "--skip-download", "-J", url], { timeout: 30000, maxBuffer: 20 * 1024 * 1024 });
+    const args = ["--no-playlist", "--no-warnings", "--socket-timeout", "10", "--retries", "1", "--skip-download"];
+    if (url.includes("youtube.com") || url.includes("youtu.be")) args.push("--extractor-args", "youtube:player_client=android");
+    const { stdout } = await exec(ytDlp(), [...args, "-J", url], { timeout: 30000, maxBuffer: 20 * 1024 * 1024 });
     const data = JSON.parse(stdout);
     return NextResponse.json({
       title: data.title || "Untitled video",

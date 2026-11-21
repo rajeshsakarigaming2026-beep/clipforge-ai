@@ -78,10 +78,13 @@ def ytdlp_cookie_candidates():
 
 def ytdlp_run(args, binary=None, timeout=1800, capture=True):
     binary = binary or os.environ.get("YTDLP", "yt-dlp")
+    command = list(args)
+    if any("youtube.com" in str(a) or "youtu.be" in str(a) for a in command):
+        command = ["--extractor-args", "youtube:player_client=android", *command]
     last = None
     for flags in ytdlp_cookie_candidates():
         try:
-            return run([binary, *flags, *args], timeout=timeout, capture=capture)
+            return run([binary, *flags, *command], timeout=timeout, capture=capture)
         except WorkError as exc:
             last = exc
             if not flags:

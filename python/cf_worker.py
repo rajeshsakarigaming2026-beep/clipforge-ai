@@ -641,10 +641,10 @@ def fetch_url_source(url, work, yt_dlp, limit=120, live=False, info=None):
             "-f", "18/best[height<=720]/best"]
     attempts = []
     if live:
-        attempts.append([*base, "--live-from-start", "--download-sections", f"*0-{limit}"])
         attempts.append([*base, "--live-from-start", "--external-downloader", "ffmpeg",
                          "--external-downloader-args", f"ffmpeg_i:-t {limit}"])
-    attempts.append([*base, "--download-sections", f"*0-{limit}"])
+    attempts.append([*base, "--external-downloader", "ffmpeg",
+                     "--external-downloader-args", f"ffmpeg_i:-t {limit}"])
     attempts.append(base)
     last = None
     for args in attempts:

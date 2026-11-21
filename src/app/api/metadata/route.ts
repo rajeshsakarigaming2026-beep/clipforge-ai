@@ -25,21 +25,26 @@ export async function GET(request: Request) {
   }
   const url = requestUrl.searchParams.get("url") || "";
   if (!isSupportedUrl(url)) return NextResponse.json({ error: "Unsupported URL. Use YouTube, Twitch, Kick or Vimeo." }, { status: 400 });
-  try {
-    const args = ["--no-playlist", "--no-warnings", "--socket-timeout", "10", "--retries", "1", "--skip-download"];
-    if (url.includes("youtube.com") || url.includes("youtu.be")) args.push("--extractor-args", "youtube:player_client=android");
-    const { stdout } = await exec(ytDlp(), [...args, "-J", url], { timeout: 30000, maxBuffer: 20 * 1024 * 1024 });
-    const data = JSON.parse(stdout);
-    return NextResponse.json({
-      title: data.title || "Untitled video",
-      channel: data.channel || data.uploader || "Unknown creator",
-      duration: Number(data.duration) || 0,
-      thumbnail: data.thumbnail || null,
-      live: Boolean(data.is_live),
-      platform: new URL(url).hostname.replace(/^www\./, ""),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not read video metadata";
-    return NextResponse.json({ error: `Could not read this video. It may be private, live, region-locked or require a login. ${message.slice(0, 180)}` }, { status: 422 });
+  const isYouTube = url.includes("youtube.com") || url.includes("youtu.be");
+  const clients = isYouTube ? ["android", "tv", "web_safari", "mweb"] : [""];
+  let lastError = "Could not read video metadata";
+  for (const client of clients) {
+    try {
+      const args = ["--no-playlist", "--no-warnings", "--socket-timeout", "10", "--retries", "1", "--skip-download"];
+      if (client) args.push("--extractor-args", `youtube:player_client=${client}`);
+      const { stdout } = await exec(ytDlp(), [...args, "-J", url], { timeout: 30000, maxBuffer: 20 * 1024 * 1024 });
+      const data = JSON.parse(stdout);
+      return NextResponse.json({
+        title: data.title || "Untitled video",
+        channel: data.channel || data.uploader || "Unknown creator",
+        duration: Number(data.duration) || 0,
+        thumbnail: data.thumbnail || null,
+        live: Boolean(data.is_live),
+        platform: new URL(url).hostname.replace(/^www\./, ""),
+      });
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
+    }
   }
+  return NextResponse.json({ error: `Could not read this video. It may be private, live, region-locked or require a login. ${lastError.slice(0, 400)}` }, { status: 422 });
 }

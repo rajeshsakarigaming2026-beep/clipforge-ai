@@ -502,16 +502,31 @@ def render_clip(source, pick, work, dest, opts, words):
     return {"file": dest.name, "thumb": thumb.name if thumb else None, "look": layout}
 
 
-def fetch_url_source(url, work, yt_dlp, limit=120):
-    ytdlp_run(["--no-playlist", "--no-warnings", "--socket-timeout", "15", "--retries", "2", "-J", url], binary=yt_dlp, timeout=90)
+def fetch_url_source(url, work, yt_dlp, limit=120, live=False):
+    info = json.loads(ytdlp_run(["--no-playlist", "--no-warnings", "--socket-timeout", "15",
+                                 "--retries", "2", "-J", url], binary=yt_dlp, timeout=90))
+    live = live or bool(info.get("is_live") and not info.get("was_live"))
     out = work / "video.%(ext)s"
-    try:
-        ytdlp_run(["--no-playlist", "--no-warnings", "--socket-timeout", "15", "--retries", "2",
-                   "-f", "18/best[height<=720]/best", "--download-sections", f"*0-{limit}",
-                   "-o", str(out), url], binary=yt_dlp, timeout=900)
-    except Exception as exc:
-        detail = str(exc)[:400].replace("\n", " ")
-        raise WorkError(f"Could not download the stream video: {detail}. Sign in to YouTube in the CLIPFORGE Chrome shortcut or add storage/youtube-cookies.txt, then retry.") from exc
+    base = ["--no-playlist", "--no-warnings", "--socket-timeout", "15", "--retries", "2",
+            "-f", "18/best[height<=720]/best"]
+    attempts = []
+    if live:
+        attempts.append([*base, "--live-from-start", "--download-sections", f"*0-{limit}"])
+        attempts.append([*base, "--live-from-start", "--external-downloader", "ffmpeg",
+                         "--external-downloader-args", f"ffmpeg_i:-t {limit}"])
+    attempts.append([*base, "--download-sections", f"*0-{limit}"])
+    attempts.append(base)
+    last = None
+    for args in attempts:
+        try:
+            ytdlp_run([*args, "-o", str(out), url], binary=yt_dlp, timeout=900)
+            last = None
+            break
+        except Exception as exc:
+            last = exc
+    if last is not None:
+        detail = str(last)[:400].replace("\n", " ")
+        raise WorkError(f"Could not download the stream video: {detail}. Sign in to YouTube in the CLIPFORGE Chrome shortcut or add storage/youtube-cookies.txt, then retry.") from last
     files = [p for p in work.glob("video.*") if not p.name.endswith((".part", ".ytdl"))]
     if not files:
         raise WorkError("No video could be downloaded from that URL. Sign in to YouTube in the CLIPFORGE Chrome shortcut or add storage/youtube-cookies.txt, then retry.")
@@ -564,10 +579,11 @@ def main():
             meta = ytdlp_run(["--no-playlist", "--no-warnings", "--socket-timeout", "15",
                               "--retries", "2", "-J", source], binary=opts.ytdlp, timeout=90)
             info = json.loads(meta)
-            if info.get("is_live") and not info.get("was_live"):
-                raise WorkError("This stream is still live. Wait for it to finish, or provide a recorded segment / authorized local file.")
+            is_live = bool(info.get("is_live") and not info.get("was_live"))
+            if is_live:
+                progress("downloading", 10, "Live stream detected - recording the opening segment")
             progress("downloading", 12, f"Downloading the first {opts.max_source_seconds // 60} minute(s) of the stream")
-            analysis_source = str(fetch_url_source(source, work, opts.ytdlp, opts.max_source_seconds))
+            analysis_source = str(fetch_url_source(source, work, opts.ytdlp, opts.max_source_seconds, is_live))
         else:
             if not Path(source).exists():
                 raise WorkError(f"Source file is missing: {source}")

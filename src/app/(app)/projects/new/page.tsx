@@ -161,7 +161,7 @@ export default function NewProjectPage() {
                 <div className="rounded-lg border border-white/5 bg-white/[0.03] p-3"><Clock className="h-3.5 w-3.5 text-violet-300" /><p className="mt-1 font-semibold text-white">{Math.round((meta?.duration || localMeta?.duration || 0) / 60)} min</p><p className="text-[10px] text-slate-500">Duration</p></div>
                 <div className="rounded-lg border border-white/5 bg-white/[0.03] p-3"><FileVideo className="h-3.5 w-3.5 text-blue-300" /><p className="mt-1 font-semibold text-white">{mode === "url" ? meta?.platform || "URL" : "Local"}</p><p className="text-[10px] text-slate-500">Source</p></div>
               </div>
-              {meta?.live && <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-500/10 p-3 text-xs text-amber-200">This stream is live. Only already-recorded segments can be processed.</div>}
+              {meta?.live && <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-500/10 p-3 text-xs text-amber-200">This stream is live. CLIPFORGE will record and analyze the opening segment.</div>}
             </motion.div>
           )}
           <div className="mt-6 rounded-xl border border-violet-400/15 bg-violet-500/[0.07] p-4">

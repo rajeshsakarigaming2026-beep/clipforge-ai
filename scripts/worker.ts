@@ -18,7 +18,7 @@ if (keepAliveUrl) {
 }
 
 async function recover() {
-  await prisma.project.updateMany({ where: { status: "processing", stage: { notIn: ["queued", "claiming"] } }, data: { stage: "queued" } });
+  await prisma.project.updateMany({ where: { status: "processing", stage: { notIn: ["queued", "claiming", "local-queued", "local-processing"] } }, data: { stage: "queued" } });
   await prisma.project.updateMany({ where: { stage: "claiming" }, data: { stage: "queued" } });
   await prisma.renderJob.updateMany({ where: { status: "running" }, data: { status: "pending" } });
 }
@@ -30,8 +30,12 @@ async function tick() {
       data: { stage: "claiming" },
     });
     if (claimed.count) {
-      const projects = await prisma.project.findMany({ where: { status: "processing", stage: "claiming" }, select: { id: true } });
+      const projects = await prisma.project.findMany({ where: { status: "processing", stage: "claiming" }, select: { id: true, sourceType: true, sourceUrl: true } });
       for (const project of projects) {
+        if (project.sourceType === "url" && /youtube\.com|youtu\.be/i.test(project.sourceUrl || "")) {
+          await prisma.project.update({ where: { id: project.id }, data: { stage: "queued" } });
+          continue;
+        }
         if (active.has(project.id)) continue;
         active.add(project.id);
         void runProjectJob(project.id).finally(() => active.delete(project.id));

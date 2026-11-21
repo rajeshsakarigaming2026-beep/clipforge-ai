@@ -2,6 +2,7 @@ import { createHash, createHmac } from "node:crypto";
 import { mkdir, readFile, writeFile, access, mkdtemp } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { prisma } from "@/lib/db";
 
 const driver = process.env.STORAGE_DRIVER || "local";
 const root = path.resolve(process.cwd(), process.env.STORAGE_ROOT || "./storage");
@@ -67,6 +68,11 @@ export const storage = {
       await writeFile(target, body);
       return;
     }
+    if (driver === "database") {
+      const key = keyFor(rel);
+      await prisma.storedFile.upsert({ where: { path: key }, create: { path: key, data: body }, update: { data: body } });
+      return;
+    }
     const url = s3Url(rel);
     const res = await fetch(url, { method: "PUT", headers: signV4("PUT", url, body, s3Config()), body });
     if (!res.ok) throw new Error(`S3 upload failed: ${res.status} ${await res.text()}`);
@@ -74,6 +80,11 @@ export const storage = {
 
   async read(rel: string) {
     if (driver === "local") return readFile(localTarget(rel));
+    if (driver === "database") {
+      const file = await prisma.storedFile.findUnique({ where: { path: keyFor(rel) } });
+      if (!file) throw new Error(`File not found: ${keyFor(rel)}`);
+      return Buffer.from(file.data);
+    }
     const url = s3Url(rel);
     const res = await fetch(url, { headers: signV4("GET", url, Buffer.alloc(0), s3Config()) });
     if (!res.ok) throw new Error(`S3 download failed: ${res.status}`);
@@ -85,6 +96,10 @@ export const storage = {
       if (driver === "local") {
         await access(localTarget(rel));
         return true;
+      }
+      if (driver === "database") {
+        const count = await prisma.storedFile.count({ where: { path: keyFor(rel) } });
+        return count > 0;
       }
       const url = s3Url(rel);
       const res = await fetch(url, { method: "HEAD", headers: signV4("HEAD", url, Buffer.alloc(0), s3Config()) });

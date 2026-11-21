@@ -39,7 +39,7 @@ const faqs = [
   { q: "Can you process a livestream that is still running?", a: "Only recorded or currently accessible segments can be processed. CLIPFORGE does not bypass Video restrictions, logins or DRM. Wait for the stream to finish, or upload a recording you are authorized to edit." },
   { q: "What does the facecam layout do?", a: "A face detector finds the streamer in the frame. For gameplay streams it puts the facecam on top and gameplay below. For talking-head videos it follows the face with a vertical crop. You can override every value in the editor." },
   { q: "Are the clips really rendered?", a: "Yes. The worker cuts the source with FFmpeg, transcribes with faster-whisper, builds ASS caption overlays, reframes to 1080×1920, normalizes audio and encodes H.264/AAC MP4 files." },
-  { q: "Where are my files stored?", a: "By default everything stays in the local storage folder on the machine running the app. Set STORAGE_DRIVER=s3 and the S3 environment variables to use S3-compatible object storage instead." },
+  { q: "Where are my files stored?", a: "Locally they stay in the storage folder. On the free cloud deployment they are stored as bytes in Postgres, so no separate bucket or card is needed." },
 ];
 
 export default function Landing() {

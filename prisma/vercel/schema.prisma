@@ -118,5 +118,12 @@ model RenderJob {
   status    String   @default("pending")
   error     String?
   createdAt DateTime @default(now())
-  updatedAt DateTime  @updatedAt
+  updatedAt DateTime @updatedAt
+}
+
+model StoredFile {
+  path      String   @id
+  data      Bytes
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

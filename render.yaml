@@ -18,19 +18,9 @@ envVarGroups:
       - key: WORKER_URL
         value: https://clipforge-ai-worker.onrender.com
       - key: STORAGE_DRIVER
-        value: s3
-      - key: S3_ENDPOINT
-        sync: false
-      - key: S3_BUCKET
-        sync: false
-      - key: S3_REGION
-        value: auto
-      - key: S3_ACCESS_KEY_ID
-        sync: false
-      - key: S3_SECRET_ACCESS_KEY
-        sync: false
+        value: database
       - key: ADMIN_EMAILS
-        sync: false
+        value: rajeshsakarigaming2026@gmail.com
       - key: MAX_UPLOAD_MB
         value: "100"
       - key: MAX_SOURCE_SECONDS

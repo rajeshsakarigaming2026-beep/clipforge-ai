@@ -71,14 +71,13 @@ Vercel can host the website and admin, but it cannot run the video worker (no Py
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Frajeshsakarigaming2026-beep%2Fclipforge-ai)
 
 1. Push this folder to a GitHub repository.
-2. Create an S3-compatible bucket (Cloudflare R2 has a generous free tier) and note its endpoint, bucket, access key and secret key.
-3. In Render, choose **New → Blueprint Instance**, connect the repository and select `render.yaml`.
-4. Fill the prompted values: `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` and `ADMIN_EMAILS` (your admin email). `AUTH_SECRET` and `DATABASE_URL` are generated/wired automatically.
-5. Open the web service URL (`https://clipforge-ai.onrender.com` by default). If your service name differs, update `NEXT_PUBLIC_APP_URL` in the shared environment group.
+2. In Render, choose **New → Blueprint Instance**, connect the repository and select `render.yaml`.
+3. Everything is preconfigured: two free web services, one free Postgres database and `STORAGE_DRIVER=database`, which stores uploads/renders as bytes in Postgres. No S3 account or card is needed.
+4. Open the web service URL (`https://clipforge-ai.onrender.com` by default). If your service name differs, update `NEXT_PUBLIC_APP_URL` and `WORKER_URL` in the shared environment group.
 
 The web service runs `prisma db push` on start, so the database schema is created automatically. Anyone can sign up; free accounts get 2 projects and 3 clips per video. Rendering runs in the worker, so closing the browser does not stop a job.
 
-Costs: everything in `render.yaml` uses free plans (two free Render web services, one free Postgres, free Cloudflare R2). Free web services sleep after 15 idle minutes; the web service pings the worker when you process a video or re-render a clip to wake it. Free Render Postgres expires after 30 days, so refresh or upgrade it before then for a permanent deployment.
+Costs: $0. `render.yaml` uses two free Render web services and one free Postgres database; file storage lives in that database, so no S3/R2 credentials are required. Free web services sleep after 15 idle minutes; the web service pings the worker when you process a video or re-render a clip to wake it. Free Render Postgres expires after 30 days, so refresh or upgrade it before then for a permanent deployment.
 
 ---
 
@@ -90,7 +89,7 @@ See `.env.example`. Important ones:
 | --- | --- |
 | `DATABASE_URL` | Prisma connection string. Defaults to SQLite `file:./dev.db` |
 | `AUTH_SECRET` | JWT signing secret. Must be long and random |
-| `STORAGE_DRIVER` | `local` (default) or `s3` |
+| `STORAGE_DRIVER` | `local` (default), `database` (files in Postgres, free) or `s3` |
 | `STORAGE_ROOT` | Where uploads and clips live when using local storage |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | S3-compatible configuration |
 | `VIDEO_PYTHON` | Python interpreter containing the video/AI dependencies |
@@ -111,7 +110,7 @@ The models use only portable Prisma types, so no field changes are required.
 
 ### S3-compatible storage
 
-Set `STORAGE_DRIVER=s3` plus the `S3_*` variables. Uploads are written to the bucket; sources are downloaded to a temporary local file for processing and rendered clips are uploaded back. For public URLs, set `S3_PUBLIC_BASE_URL` if you serve clips directly; by default downloads stream through `/api/clips/[id]/file`.
+Set `STORAGE_DRIVER=database` to store uploads and renders as bytes in the free Render Postgres database (no bucket needed). Set `STORAGE_DRIVER=s3` plus the `S3_*` variables to use S3-compatible object storage instead; sources are downloaded to a temporary local file for processing and rendered clips are uploaded back. Downloads always stream through `/api/clips/[id]/file`.
 
 ---
 

@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  projects     Project[]
+  settings     Settings?
+}
+
+model Project {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  sourceType String
+  sourceUrl  String?
+  fileName   String?
+  status     String   @default("queued")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs       Job[]
+  clips      Clip[]
+}
+
+model Job {
+  id        String   @id @default(cuid())
+  projectId String
+  status    String   @default("queued")
+  stage     String   @default("queued")
+  progress  Int      @default(0)
+  message   String?
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Clip {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  startTime Float
+  endTime   Float
+  score     Float
+  type      String
+  why       String?
+  fileName  String?
+  thumbnail String?
+  status    String   @default("pending")
+  layout    String   @default("auto")
+  settings  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Settings {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  defaultLayout  String   @default("auto")
+  captionColor   String   @default("#FFFFFF")
+  highlightColor String   @default("#A855F7")
+  fontSize       Int      @default(72)
+  autoMusic      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

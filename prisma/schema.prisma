@@ -1,0 +1,123 @@
+// Prisma schema for local development (SQLite). See README.md for PostgreSQL.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  projects     Project[]
+  settings     UserSettings?
+}
+
+model UserSettings {
+  id              String @id @default(cuid())
+  userId          String @unique
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  captionColor    String @default("#FFFFFF")
+  highlightColor  String @default("#FFD400")
+  fontFamily      String @default("Arial Black")
+  layout          String @default("auto")
+  clipsPerVideo   Int       @default(3)
+  language        String    @default("auto")
+  autoMusic       Boolean   @default(true)
+  plan            String    @default("free")
+  paid            Boolean   @default(false)
+  accessExpiresAt DateTime?
+  updatedAt       DateTime  @updatedAt
+}
+
+model Project {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  sourceType  String    @default("upload")
+  sourceUrl   String?
+  fileName    String?
+  storagePath String?
+  topic       String    @default("general")
+  duration    Float?
+  metadata    String?
+  status      String    @default("created")
+  stage       String    @default("queued")
+  progress    Int       @default(0)
+  errorMessage String?
+  logs        String    @default("[]")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  clips       Clip[]
+}
+
+model Clip {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  slug        String
+  startTime   Float
+  endTime     Float
+  duration    Float
+  score       Int
+  reason      String?
+  type        String?
+  filePath    String
+  thumbPath   String?
+  look        String   @default("stack")
+  transcript  String?
+  captionColor String @default("#FFFFFF")
+  highlightColor String @default("#FFD400")
+  camX        Float    @default(0.72)
+  camY        Float    @default(0.0)
+  camW        Float    @default(0.28)
+  camH        Float    @default(0.30)
+  zoom        Float    @default(1.0)
+  playbackSpeed Float  @default(1.0)
+  status      String   @default("ready")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SiteSettings {
+  id        String   @id @default("site")
+  data      String
+  updatedAt DateTime @updatedAt
+}
+
+model PurchaseRequest {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  plan      String
+  message   String?
+  status    String   @default("new")
+  createdAt DateTime @default(now())
+}
+
+model EmailAccess {
+  email           String    @id
+  plan            String    @default("creator")
+  paid            Boolean   @default(true)
+  accessExpiresAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model RenderJob {
+  id        String   @id @default(cuid())
+  clipId    String   @unique
+  payload   String
+  status    String   @default("pending")
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
